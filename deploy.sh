@@ -1,6 +1,6 @@
 #!/bin/bash
 # Deploy github-copilot-pr-cycle skill to production directory
-# Copies SKILL.md and wait_for_review.sh to ~/.agents/skills/github-copilot-pr-cycle/
+# Copies all skill files to ~/.agents/skills/github-copilot-pr-cycle/
 
 set -e
 
@@ -22,9 +22,21 @@ mkdir -p "$PROD_DIR"
 cp "$SKILL_DIR/SKILL.md" "$PROD_DIR/SKILL.md"
 echo "✓ Copied SKILL.md"
 
+cp "$SKILL_DIR/README.md" "$PROD_DIR/README.md"
+echo "✓ Copied README.md"
+
+cp "$SKILL_DIR/CHANGELOG.md" "$PROD_DIR/CHANGELOG.md"
+echo "✓ Copied CHANGELOG.md"
+
 cp "$SCRIPT_DIR/wait_for_review.sh" "$PROD_DIR/wait_for_review.sh"
 chmod +x "$PROD_DIR/wait_for_review.sh"
 echo "✓ Copied wait_for_review.sh"
+
+if [[ -d "$SKILL_DIR/references" ]]; then
+    mkdir -p "$PROD_DIR/references"
+    cp "$SKILL_DIR/references/"* "$PROD_DIR/references/"
+    echo "✓ Copied references/"
+fi
 
 echo ""
 echo "Deployment complete!"
