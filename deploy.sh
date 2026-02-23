@@ -1,30 +1,32 @@
 #!/bin/bash
-# Deploy skills from development directory to production location
+# Deploy github-copilot-pr-cycle skill to production directory
+# Copies SKILL.md and wait_for_review.sh to ~/.agents/skills/github-copilot-pr-cycle/
 
-DEV_DIR="/home/jochym/Projects/Skills"
-PROD_DIR="/home/jochym/.agents/skills"
+set -e
 
-echo "🚀 Starting deployment of skills..."
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SKILL_DIR="$SCRIPT_DIR/github-copilot-pr-cycle"
+PROD_DIR="$HOME/.agents/skills/github-copilot-pr-cycle"
 
-# Ensure production directory exists
+echo "Deploying github-copilot-pr-cycle skill..."
+echo "Source: $SKILL_DIR"
+echo "Target: $PROD_DIR"
+
+if [[ ! -d "$SKILL_DIR" ]]; then
+    echo "Error: Skill directory not found: $SKILL_DIR"
+    exit 1
+fi
+
 mkdir -p "$PROD_DIR"
 
-# Loop through subdirectories in development folder
-for skill in "$DEV_DIR"/*/; do
-    skill_name=$(basename "$skill")
-    
-    # Skip hidden directories or files
-    if [[ "$skill_name" == "."* ]] || [ ! -d "$skill" ]; then
-        continue
-    fi
-    
-    echo "📦 Deploying skill: $skill_name"
-    
-    # Create target directory
-    mkdir -p "$PROD_DIR/$skill_name"
-    
-    # Sync files (excluding git data)
-    rsync -av --exclude='.git' "$skill" "$PROD_DIR/$skill_name/"
-done
+cp "$SKILL_DIR/SKILL.md" "$PROD_DIR/SKILL.md"
+echo "✓ Copied SKILL.md"
 
-echo "✅ Deployment complete!"
+cp "$SCRIPT_DIR/wait_for_review.sh" "$PROD_DIR/wait_for_review.sh"
+chmod +x "$PROD_DIR/wait_for_review.sh"
+echo "✓ Copied wait_for_review.sh"
+
+echo ""
+echo "Deployment complete!"
+echo "Files in $PROD_DIR:"
+ls -la "$PROD_DIR"

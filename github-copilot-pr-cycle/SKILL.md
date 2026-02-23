@@ -12,32 +12,48 @@ description: Fully automated PR cycle with GitHub Copilot. Handles PR creation, 
 3. **Commit & Push**: Commit changes and push to origin.
 4. **Wait for CI Success (CRITICAL)**: Wait for standard CI checks to pass BEFORE requesting review.
    ```bash
-   gh run watch $(gh run list --limit 1 --json databaseId --jq '.[0].databaseId') --compact --exit-status
+   gh pr checks --watch --fail-fast --interval 10
    ```
 5. **Request Copilot Review**: Only after CI is green:
-   `gh pr edit <PR> --add-reviewer "@copilot"`
-6. **Wait for Copilot Review**: Wait for Copilot's specific workflow to complete and then fetch results.
    ```bash
-   gh run watch $(gh run list --workflow "Copilot code review" --limit 1 --json databaseId --jq '.[0].databaseId') --compact --exit-status && \
-   gh pr view <PR> --json reviews --jq '[.reviews[] | select(.author.login | contains("copilot"))] | sort_by(.submittedAt) | last'
+   gh pr edit --add-reviewer "copilot-pull-request-reviewer"
    ```
-7. **Verify & React**: Monitor for "Pull request overview" and unresolved threads.
-8. **Repeat/Finish**: If new comments, return to step 1. Otherwise, finish and report.
+6. **Wait for Copilot Review**: Use the wait script to poll for review completion.
+   ```bash
+   ./wait_for_review.sh --author "copilot-pull-request-reviewer" --timeout 900
+   ```
+7. **Fetch Review Content**: Get the full review body for processing.
+   ```bash
+   gh pr view --json reviews \
+     --jq '[.reviews[] | select(.author.login == "copilot-pull-request-reviewer")] | sort_by(.submittedAt) | last'
+   ```
+8. **Verify & React**: Monitor for "Pull request overview" and unresolved threads.
+9. **Repeat/Finish**: If new comments, return to step 1. Otherwise, finish and report.
 
 ## Phase 2: Automated Iteration Cycle
 
 ### Step 2: Wait for CI Success
-Always wait for the latest run to complete successfully before engaging Copilot. Use `--compact` to reduce output noise and `--exit-status` for reliable chaining.
+Use `gh pr checks --watch --fail-fast --interval 10`. This native command:
+- Exit code 0: All checks passed.
+- Exit code 1: Checks failed (stop immediately, fix CI).
+- Exit code 8: Checks still pending (command keeps waiting).
 
 ### Step 3: Request Copilot Review
-Use `@copilot` (with @ symbol). Never use comments to trigger reviews.
+Use `copilot-pull-request-reviewer` (no @ symbol needed in gh CLI).
 
 ### Step 4: Monitor for Completion
-Wait for:
-1. `gh run watch --compact --exit-status` for the Copilot workflow to finish.
-2. `submittedAt` field is NOT null in PR reviews.
-3. Body contains "Pull request overview".
-4. Thread count matches the number reported in the overview ("generated X comments").
+The `wait_for_review.sh` script handles:
+1. Polling every 10 seconds.
+2. Checking for `submittedAt` field (review submitted).
+3. Verifying body contains "Pull request overview".
+4. Timeout after 15 minutes (configurable).
+
+### Step 5: Parse Review
+Use `jq` to extract review body and comments:
+```bash
+gh pr view --json reviews \
+  --jq '.reviews[] | select(.author.login == "copilot-pull-request-reviewer") | .body'
+```
 
 ## Autonomous Decision Rules
 - **Low Confidence Comments**: Analyze critically. If it's a real bug, fix using TDD. If stylistic/disagree, leave for human review.
